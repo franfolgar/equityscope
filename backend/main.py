@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import math
+import os
 import re
-from datetime import date, datetime
+from datetime import date
 from typing import Any
 
 import yfinance as yf
@@ -10,9 +11,17 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="EquityScope Finance API", version="1.0.0")
+allowed_origins = [
+    origin.strip().rstrip("/")
+    for origin in os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173",
+    ).split(",")
+    if origin.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_methods=["GET"],
     allow_headers=["*"],
 )

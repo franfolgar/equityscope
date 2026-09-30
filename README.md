@@ -27,13 +27,16 @@ La web usa `http://localhost:8000` por defecto cuando `VITE_API_URL` no está de
 
 El proxy consulta Yahoo Finance mediante yfinance: hasta cinco períodos anuales de resultados, balance y flujo de caja, además de una estimación LTM sumando los últimos cuatro trimestres publicados. Las partidas no publicadas por Yahoo se representan como cero, por lo que conviene contrastar los estados con los informes de la empresa. El precio de mercado puede retrasarse. Yahoo/yfinance no ofrece un SLA y puede limitar consultas.
 
-GitHub Pages solo aloja el frontend estático; no ejecuta FastAPI. Para habilitar el análisis en el despliegue:
+GitHub Pages solo aloja el frontend estático; no ejecuta FastAPI. El archivo `render.yaml` permite crear el backend en Render como servicio Python gratuito:
 
-1. Despliega `backend/` en un servicio Python con HTTPS.
-2. En **Settings → Secrets and variables → Actions → Variables** del repositorio, crea la variable `VITE_API_URL` con el origen público del API (por ejemplo, `https://mi-api.example.com`, sin `/api`).
-3. En **Actions**, vuelve a ejecutar el workflow **Deploy to GitHub Pages** para compilar el frontend con ese origen.
+1. Inicia sesión en Render, elige **New → Blueprint**, conecta `franfolgar/equityscope` y confirma la creación del servicio descrito por `render.yaml`.
+2. Espera a que `https://equityscope-api-franfolgar.onrender.com/health` responda `{"status":"ok"}`. Si Render asigna otro subdominio, usa el que aparezca en el dashboard.
+3. En **Settings → Secrets and variables → Actions → Variables** de GitHub, crea `VITE_API_URL` con el origen HTTPS del backend (sin `/api`).
+4. En **Actions**, vuelve a ejecutar **Deploy to GitHub Pages** para compilar el frontend con ese origen.
 
-Hasta que se configure el API, la página explica que el servicio falta en lugar de intentar interpretar la respuesta HTML de GitHub Pages como JSON. La API no contiene credenciales. CORS permite solicitudes GET desde cualquier origen; limita los orígenes antes de alojar el backend en producción.
+Hasta que se configure el API, la página explica que el servicio falta en lugar de intentar interpretar la respuesta HTML de GitHub Pages como JSON. CORS permite el dominio de GitHub Pages y localhost para desarrollo. CORS solo limita solicitudes desde navegadores; no es autenticación y el API sigue siendo público.
+
+El plan gratuito de Render puede suspender el servicio tras inactividad; la primera consulta puede tardar alrededor de un minuto al reactivarse. Es adecuado para pruebas y proyectos personales, no para producción.
 
 ## Modelo
 
