@@ -27,7 +27,13 @@ La web usa `http://localhost:8000` por defecto cuando `VITE_API_URL` no está de
 
 El proxy consulta Yahoo Finance mediante yfinance: hasta cinco períodos anuales de resultados, balance y flujo de caja, además de una estimación LTM sumando los últimos cuatro trimestres publicados. Las partidas no publicadas por Yahoo se representan como cero, por lo que conviene contrastar los estados con los informes de la empresa. El precio de mercado puede retrasarse. Yahoo/yfinance no ofrece un SLA y puede limitar consultas.
 
-GitHub Pages solo aloja el frontend estático; no ejecuta FastAPI. Para el análisis de datos en el despliegue, despliega `backend/` en un servicio Python con HTTPS y define `VITE_API_URL` como variable de Actions del repositorio con la URL pública del API. La API no contiene credenciales. CORS permite solicitudes GET desde cualquier origen; limita los orígenes antes de alojar el backend en producción.
+GitHub Pages solo aloja el frontend estático; no ejecuta FastAPI. Para habilitar el análisis en el despliegue:
+
+1. Despliega `backend/` en un servicio Python con HTTPS.
+2. En **Settings → Secrets and variables → Actions → Variables** del repositorio, crea la variable `VITE_API_URL` con el origen público del API (por ejemplo, `https://mi-api.example.com`, sin `/api`).
+3. En **Actions**, vuelve a ejecutar el workflow **Deploy to GitHub Pages** para compilar el frontend con ese origen.
+
+Hasta que se configure el API, la página explica que el servicio falta en lugar de intentar interpretar la respuesta HTML de GitHub Pages como JSON. La API no contiene credenciales. CORS permite solicitudes GET desde cualquier origen; limita los orígenes antes de alojar el backend en producción.
 
 ## Modelo
 
