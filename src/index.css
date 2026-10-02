@@ -50,6 +50,11 @@ button:disabled { cursor: not-allowed; opacity: .65; }
 .welcome-card p { max-width:470px; margin:0 0 19px; color:#7a8797; font-size:13px; line-height:1.7; }
 .secondary-button { display:flex; align-items:center; gap:7px; padding:9px 12px; color:#315ee8; font-size:12px; font-weight:650; background:#fff; border:1px solid #dce4fa; border-radius:6px; }
 .error-banner { display:flex; align-items:center; gap:9px; padding:12px 14px; margin-bottom:16px; color:#a53a3a; font-size:12px; background:#fff2f1; border:1px solid #f3d1cf; border-radius:7px; }
+.warning-banner { display:flex; align-items:flex-start; gap:9px; padding:12px 14px; margin-bottom:16px; color:#8a5a14; font-size:12px; background:#fff8ec; border:1px solid #f1deb9; border-radius:7px; }
+.warning-banner ul { margin:0; padding-left:16px; }
+.warning-banner li + li { margin-top:4px; }
+.top-nav a { color:inherit; text-decoration:none; }
+.top-nav a:hover { color:#2c5be7; }
 .company-summary { display:flex; justify-content:space-between; align-items:center; padding:5px 1px 19px; }
 .company-name { display:flex; align-items:center; gap:12px; }
 .company-logo { display:grid; place-items:center; width:42px; height:42px; color:#315ee8; font-size:17px; font-weight:750; background:#e9efff; border-radius:10px; }
@@ -167,7 +172,7 @@ thead .row-label { z-index:1; background:#f8fafc; }
 @media (max-width: 760px) {
   .topbar { height:58px; padding:0 17px; }
   .top-nav { gap:12px; }
-  .top-nav > span:not(.data-badge) { display:none; }
+  .top-nav > span:not(.data-badge), .top-nav > a { display:none; }
   .main-content { padding:25px 16px 34px; }
   .page-heading { align-items:flex-start; gap:12px; }
   .page-heading h1 { font-size:23px; }

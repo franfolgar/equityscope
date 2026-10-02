@@ -8,5 +8,11 @@ services:
     startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
       - key: CORS_ORIGINS
         value: https://franfolgar.github.io,http://localhost:5173,http://127.0.0.1:5173
+      # Opcionales (valores por defecto entre paréntesis):
+      # CACHE_TTL_SECONDS (1800) · RATE_LIMIT_PER_MINUTE (30, por IP)
+      # GLOBAL_RATE_LIMIT_PER_MINUTE (240) · UPSTREAM_CONCURRENCY (4)
+      # TRUST_PROXY_HOPS (1: proxies de confianza delante de la app)

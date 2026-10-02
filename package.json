@@ -8,7 +8,10 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "api": "python -m uvicorn backend.main:app --reload --port 8000"
+    "api": "python -m uvicorn backend.main:app --reload --port 8000",
+    "test": "npm run test:web && npm run test:api",
+    "test:web": "node --experimental-strip-types --test --test-reporter=spec \"tests/frontend/*.test.ts\"",
+    "test:api": "python -m unittest discover -s tests/backend -t ."
   },
   "dependencies": {
     "lucide-react": "^1.49.0",

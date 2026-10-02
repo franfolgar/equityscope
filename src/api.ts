@@ -4,9 +4,24 @@ const API_URL =
   import.meta.env.VITE_API_URL?.replace(/\/$/, '') ??
   (import.meta.env.DEV ? 'http://localhost:8000' : '')
 
-export async function fetchCompany(ticker: string): Promise<CompanyData> {
+const TICKER_PATTERN = /^[A-Z0-9.^=-]{1,15}$/
+
+function isCompanyData(payload: unknown): payload is CompanyData {
+  if (typeof payload !== 'object' || payload === null) return false
+  const candidate = payload as Partial<CompanyData>
+  return (
+    typeof candidate.ticker === 'string' &&
+    typeof candidate.price === 'number' &&
+    Array.isArray(candidate.periods) &&
+    candidate.periods.length > 0 &&
+    typeof candidate.ltm === 'object' &&
+    candidate.ltm !== null
+  )
+}
+
+export async function fetchCompany(ticker: string, signal?: AbortSignal): Promise<CompanyData> {
   const symbol = ticker.trim().toUpperCase()
-  if (!/^[A-Z0-9.^=-]{1,15}$/.test(symbol)) {
+  if (!TICKER_PATTERN.test(symbol)) {
     throw new Error('Introduce un ticker válido (por ejemplo, AAPL o BRK-B).')
   }
 
@@ -18,8 +33,9 @@ export async function fetchCompany(ticker: string): Promise<CompanyData> {
 
   let response: Response
   try {
-    response = await fetch(`${API_URL}/api/analysis/${encodeURIComponent(symbol)}`)
+    response = await fetch(`${API_URL}/api/analysis/${encodeURIComponent(symbol)}`, { signal })
   } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error
     if (error instanceof TypeError) {
       throw new Error(
         `No se pudo conectar con el API financiero en ${API_URL}. Comprueba que el backend esté activo y permita solicitudes CORS desde esta web.`,
@@ -34,13 +50,19 @@ export async function fetchCompany(ticker: string): Promise<CompanyData> {
     )
   }
 
-  const payload = (await response.json()) as CompanyData | { detail?: string }
+  const payload: unknown = await response.json()
   if (!response.ok) {
-    const detail = 'detail' in payload ? payload.detail : undefined
-    throw new Error(detail || `No se pudo analizar ${symbol}.`)
+    const detail =
+      typeof payload === 'object' && payload !== null && 'detail' in payload
+        ? (payload as { detail?: unknown }).detail
+        : undefined
+    if (response.status === 429) {
+      throw new Error(typeof detail === 'string' ? detail : 'Demasiadas consultas; espera un minuto.')
+    }
+    throw new Error(typeof detail === 'string' && detail ? detail : `No se pudo analizar ${symbol}.`)
   }
-  if (!('ticker' in payload) || !('periods' in payload) || !('ltm' in payload)) {
+  if (!isCompanyData(payload)) {
     throw new Error('El API respondió con JSON, pero no con el formato de datos financieros esperado.')
   }
-  return payload as CompanyData
+  return payload
 }
