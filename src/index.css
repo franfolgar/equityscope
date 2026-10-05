@@ -41,6 +41,11 @@ button:disabled { cursor: not-allowed; opacity: .65; }
 .search-panel label svg { color:#708099; }
 .search-panel input { min-width:80px; width:130px; padding:9px 11px; color:#172438; font-size:13px; font-weight:700; text-transform:uppercase; background:#f8fafc; border:1px solid #e7ecf1; border-radius:6px; outline:none; }
 .search-panel input:focus { border-color:#7591ed; box-shadow:0 0 0 3px #edf1ff; }
+.ibex-picker { display:flex; align-items:center; gap:8px; }
+.search-panel .ibex-picker label { color:#617084; font-size:11px; }
+.ibex-picker select { max-width:205px; padding:9px 28px 9px 10px; color:#33445b; font-size:12px; background:#f8fafc; border:1px solid #e7ecf1; border-radius:6px; outline:none; }
+.ibex-picker select:focus { border-color:#7591ed; box-shadow:0 0 0 3px #edf1ff; }
+.ibex-picker select:disabled { opacity:.65; }
 .search-hint { margin-right:auto; color:#9aa5b3; font-size:11px; }
 .primary-button { display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 15px; color:white; font-size:12px; font-weight:650; background:#315ee8; border:0; border-radius:6px; box-shadow:0 2px 4px #315ee822; }
 .primary-button:hover:not(:disabled) { background:#284fd0; }
@@ -179,8 +184,11 @@ thead .row-label { z-index:1; background:#f8fafc; }
   .page-heading p { max-width:350px; font-size:12px; line-height:1.55; }
   .model-chip { flex:none; padding:7px 8px; font-size:9px; }
   .search-panel { flex-wrap:wrap; gap:9px; }
-  .search-panel label { width:calc(30% - 5px); }
+  .search-panel > label { width:calc(30% - 5px); }
   .search-panel input { flex:1; width:auto; }
+  .ibex-picker { width:100%; }
+  .search-panel .ibex-picker label { width:calc(30% - 5px); }
+  .ibex-picker select { flex:1; max-width:none; min-width:0; }
   .search-hint { display:none; }
   .primary-button { width:100%; margin-top:3px; }
   .company-summary { align-items:flex-start; gap:10px; }

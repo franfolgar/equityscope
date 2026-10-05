@@ -311,13 +311,27 @@ function App() {
             placeholder="Ej. AAPL o SAN.MC"
             maxLength={15}
             aria-label="Ticker de la acción"
-            list="ticker-suggestions"
           />
-          <datalist id="ticker-suggestions">
-            {tickerSuggestions.map(({ ticker: symbol, company: name }) => (
-              <option key={symbol} value={symbol}>{name} · IBEX 35</option>
-            ))}
-          </datalist>
+          <div className="ibex-picker">
+            <label htmlFor="ibex-ticker-select">Empresas IBEX</label>
+            <select
+              id="ibex-ticker-select"
+              defaultValue=""
+              disabled={loading}
+              onChange={(event) => {
+                const symbol = event.currentTarget.value
+                event.currentTarget.value = ''
+                if (!symbol) return
+                setTicker(symbol)
+                void analyze(undefined, symbol)
+              }}
+            >
+              <option value="">Seleccionar empresa...</option>
+              {tickerSuggestions.map(({ ticker: symbol, company: name }) => (
+                <option key={symbol} value={symbol}>{name} ({symbol})</option>
+              ))}
+            </select>
+          </div>
           <span className="search-hint">IBEX 35 · NASDAQ · NYSE · Otros mercados</span>
           <button className="primary-button" type="submit" disabled={loading || !ticker.trim()}>
             {loading ? <LoaderCircle className="spin" size={17} /> : <BarChart3 size={17} />}
