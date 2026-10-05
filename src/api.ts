@@ -1,4 +1,4 @@
-import type { CompanyData } from './types'
+import type { CompanyData, CompanySearchResult } from './types'
 
 const API_URL =
   import.meta.env.VITE_API_URL?.replace(/\/$/, '') ??
@@ -16,6 +16,18 @@ function isCompanyData(payload: unknown): payload is CompanyData {
     candidate.periods.length > 0 &&
     typeof candidate.ltm === 'object' &&
     candidate.ltm !== null
+  )
+}
+
+function isCompanySearchResult(value: unknown): value is CompanySearchResult {
+  if (typeof value !== 'object' || value === null) return false
+  return (
+    'ticker' in value &&
+    typeof value.ticker === 'string' &&
+    'name' in value &&
+    typeof value.name === 'string' &&
+    'market' in value &&
+    typeof value.market === 'string'
   )
 }
 
@@ -63,6 +75,49 @@ export async function fetchCompany(ticker: string, signal?: AbortSignal): Promis
   }
   if (!isCompanyData(payload)) {
     throw new Error('El API respondió con JSON, pero no con el formato de datos financieros esperado.')
+  }
+  return payload
+}
+
+export async function searchCompanies(
+  query: string,
+  signal?: AbortSignal,
+  market?: string,
+): Promise<CompanySearchResult[]> {
+  const normalized = query.trim()
+  if (normalized.length > 80 || (!normalized && !market)) {
+    throw new Error('Escribe un ticker/nombre o selecciona un mercado.')
+  }
+  if (!API_URL) {
+    throw new Error('El buscador financiero no está configurado para esta web.')
+  }
+
+  let response: Response
+  try {
+    const params = new URLSearchParams({ q: normalized })
+    if (market) params.set('market', market)
+    response = await fetch(`${API_URL}/api/search?${params}`, { signal })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error
+    if (error instanceof TypeError) {
+      throw new Error(`No se pudo conectar con el buscador financiero en ${API_URL}.`)
+    }
+    throw error
+  }
+
+  if (!response.headers.get('content-type')?.includes('application/json')) {
+    throw new Error(`El buscador respondió con un formato no JSON (HTTP ${response.status}).`)
+  }
+  const payload: unknown = await response.json()
+  if (!response.ok) {
+    const detail =
+      typeof payload === 'object' && payload !== null && 'detail' in payload
+        ? (payload as { detail?: unknown }).detail
+        : undefined
+    throw new Error(typeof detail === 'string' && detail ? detail : 'No se pudo buscar empresas.')
+  }
+  if (!Array.isArray(payload) || !payload.every(isCompanySearchResult)) {
+    throw new Error('El buscador respondió con resultados en un formato no válido.')
   }
   return payload
 }

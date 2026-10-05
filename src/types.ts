@@ -30,13 +30,24 @@ export interface CompanyData {
   ticker: string
   name: string
   currency: string
+  market?: string
   price: number
   periods: FinancialPeriod[]
   ltm: FinancialPeriod
   source: string
   asOf: string
+  fetchedAt?: string
+  statementPeriod?: string
+  quoteAsOf?: string | null
+  missingMetrics?: string[]
   /** Avisos del API (LTM aproximado, conversión de moneda, datos ausentes...). */
   warnings?: string[]
+}
+
+export interface CompanySearchResult {
+  ticker: string
+  name: string
+  market: string
 }
 
 export interface ValuationAssumptions {

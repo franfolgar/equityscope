@@ -4,11 +4,11 @@ import os
 import re
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from .ratelimit import SlidingWindowLimiter, allow_analysis_request
-from .service import DataError, get_company
+from .service import DataError, get_company, search_tickers
 
 app = FastAPI(title="EquityScope Finance API", version="1.1.0")
 allowed_origins = [
@@ -61,6 +61,24 @@ def analyze(symbol: str, request: Request) -> dict[str, Any]:
         )
     try:
         return get_company(symbol.upper())
+    except DataError as error:
+        raise HTTPException(status_code=error.status_code, detail=error.detail) from error
+
+
+@app.get("/api/search")
+def search_companies(
+    request: Request,
+    q: str = Query(default="", max_length=80),
+    market: str | None = Query(default=None, max_length=24),
+) -> list[dict[str, str]]:
+    if not allow_analysis_request(per_ip_limiter, global_limiter, client_ip(request)):
+        raise HTTPException(
+            status_code=429,
+            detail="Demasiadas consultas; espera un minuto e inténtalo de nuevo.",
+            headers={"Retry-After": "60"},
+        )
+    try:
+        return search_tickers(q, market=market)
     except DataError as error:
         raise HTTPException(status_code=error.status_code, detail=error.detail) from error
 
