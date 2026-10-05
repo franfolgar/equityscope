@@ -34,6 +34,19 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'charts', label: 'Gráficos' },
 ]
 
+const tickerSuggestions = [
+  { ticker: 'SAN.MC', company: 'Banco Santander' },
+  { ticker: 'BBVA.MC', company: 'BBVA' },
+  { ticker: 'IBE.MC', company: 'Iberdrola' },
+  { ticker: 'ITX.MC', company: 'Inditex' },
+  { ticker: 'CABK.MC', company: 'CaixaBank' },
+  { ticker: 'FER.MC', company: 'Ferrovial' },
+  { ticker: 'AENA.MC', company: 'Aena' },
+  { ticker: 'REP.MC', company: 'Repsol' },
+  { ticker: 'TEF.MC', company: 'Telefónica' },
+  { ticker: 'ACS.MC', company: 'ACS' },
+]
+
 const formatCurrency = (value: number, currency: string, digits = 2) =>
   new Intl.NumberFormat('es-ES', {
     style: 'currency',
@@ -295,11 +308,17 @@ function App() {
             id="ticker-input"
             value={ticker}
             onChange={(event) => setTicker(event.currentTarget.value.toUpperCase())}
-            placeholder="Ej. AAPL"
+            placeholder="Ej. AAPL o SAN.MC"
             maxLength={15}
             aria-label="Ticker de la acción"
+            list="ticker-suggestions"
           />
-          <span className="search-hint">NASDAQ · NYSE · Otros mercados</span>
+          <datalist id="ticker-suggestions">
+            {tickerSuggestions.map(({ ticker: symbol, company: name }) => (
+              <option key={symbol} value={symbol}>{name} · IBEX 35</option>
+            ))}
+          </datalist>
+          <span className="search-hint">IBEX 35 · NASDAQ · NYSE · Otros mercados</span>
           <button className="primary-button" type="submit" disabled={loading || !ticker.trim()}>
             {loading ? <LoaderCircle className="spin" size={17} /> : <BarChart3 size={17} />}
             {loading ? 'Analizando...' : 'Analizar empresa'}
