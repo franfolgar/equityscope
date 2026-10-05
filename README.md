@@ -17,7 +17,7 @@ En otra terminal:
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install -r backend\requirements.txt
+python -m pip install -r backend\requirements-test.txt
 python -m uvicorn backend.main:app --reload --port 8000
 ```
 
@@ -25,7 +25,7 @@ python -m uvicorn backend.main:app --reload --port 8000
 
 ```
 npm run test:web   # lógica de valoración (Node 22+, sin dependencias extra)
-npm run test:api   # extracción de estados, moneda, caché y límite de peticiones
+npm run test:api   # extracción, API, moneda, caché y límite de peticiones
 npm test           # ambos
 ```
 
