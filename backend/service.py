@@ -70,6 +70,7 @@ def _env_number(name: str, default: float) -> float:
 _upstream_slots = threading.BoundedSemaphore(int(_env_number("UPSTREAM_CONCURRENCY", 4)))
 _cache = TTLCache(_env_number("CACHE_TTL_SECONDS", 1800), max_items=256)
 _search_cache = TTLCache(300, max_items=128)
+_currency_cache = TTLCache(900, max_items=128)
 
 
 def _default_ticker_factory(symbol: str) -> Any:
@@ -209,14 +210,21 @@ def _last_price(ticker: Any, info: dict[str, Any]) -> float:
     return price
 
 
-def _fx_rate(factory: TickerFactory, base: str, quote: str) -> Optional[float]:
+def _fx_rate(
+    factory: TickerFactory,
+    base: str,
+    quote: str,
+    *,
+    log_errors: bool = True,
+) -> Optional[float]:
     """Unidades de ``quote`` por 1 ``base`` (par de Yahoo, p. ej. EURUSD=X)."""
     try:
         closes = factory(f"{base}{quote}=X").history(period="5d")["Close"].dropna()
         rate = finite_or_none(closes.iloc[-1]) if len(closes) else None
         return rate if rate and rate > 0 else None
     except Exception:
-        log.warning("No se pudo obtener el tipo de cambio %s/%s", base, quote, exc_info=True)
+        if log_errors:
+            log.warning("No se pudo obtener el tipo de cambio %s/%s", base, quote, exc_info=True)
         return None
 
 
@@ -237,6 +245,58 @@ def align_currency(
         f"se ha convertido a {financial_currency} (1 {financial_currency} = {rate:.4f} {quote_currency}). "
         "Si es un ADR, el ratio ADR/acción no se ajusta y el precio por acción puede no ser comparable."
     ]
+
+
+def get_conversion_rate(
+    source: str,
+    target: str,
+    ticker_factory: Optional[TickerFactory] = None,
+) -> dict[str, Any]:
+    """Devuelve unidades de moneda destino por unidad de moneda origen."""
+    if not re.fullmatch(r"[A-Z]{3}", source) or not re.fullmatch(r"[A-Z]{3}", target):
+        raise DataError(400, "Código de moneda no válido.")
+    if source == target:
+        return {
+            "source": source,
+            "target": target,
+            "rate": 1.0,
+            "fetchedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        }
+
+    factory = ticker_factory or _default_ticker_factory
+
+    def pair_rate(base: str, quote: str) -> Optional[float]:
+        direct = _fx_rate(factory, base, quote, log_errors=False)
+        if direct is not None:
+            return direct
+        inverse = _fx_rate(factory, quote, base, log_errors=False)
+        return 1 / inverse if inverse else None
+
+    def fetch() -> dict[str, Any]:
+        if not _upstream_slots.acquire(timeout=15):
+            raise DataError(503, "El servicio está ocupado; inténtalo de nuevo en unos segundos.")
+        try:
+            rate = pair_rate(source, target)
+            if rate is None and source != "USD" and target != "USD":
+                source_to_usd = pair_rate(source, "USD")
+                target_to_usd = pair_rate(target, "USD")
+                if source_to_usd is not None and target_to_usd:
+                    rate = source_to_usd / target_to_usd
+            if rate is None or rate <= 0:
+                raise DataError(
+                    502,
+                    f"No se pudo obtener el cambio de {source} a {target} desde Yahoo Finance.",
+                )
+            return {
+                "source": source,
+                "target": target,
+                "rate": rate,
+                "fetchedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            }
+        finally:
+            _upstream_slots.release()
+
+    return _currency_cache.get_or_create(f"{source}:{target}", fetch)
 
 
 def fetch_company(symbol: str, ticker_factory: Optional[TickerFactory] = None) -> dict[str, Any]:

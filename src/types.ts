@@ -50,6 +50,13 @@ export interface CompanySearchResult {
   market: string
 }
 
+export interface CurrencyConversion {
+  source: string
+  target: string
+  rate: number
+  fetchedAt: string
+}
+
 export interface ValuationAssumptions {
   revenueGrowth: number
   /** Crecimiento del año 5; el crecimiento converge linealmente hacia él. */

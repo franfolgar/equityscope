@@ -41,6 +41,8 @@ El proxy consulta Yahoo Finance mediante yfinance: hasta cinco períodos anuales
 
 El panel «Procedencia y calidad de los datos» identifica Yahoo Finance vía yfinance, la hora en que EquityScope consultó el proveedor (respuesta cacheada hasta 30 minutos), el último ejercicio utilizado y, cuando Yahoo lo informa, la hora de la cotización. También enumera partidas que no se encontraron en el último ejercicio y los avisos sobre LTM, moneda y emparejamiento de estados. La fecha de consulta no garantiza que Yahoo haya actualizado todos los datos en ese momento; los campos no publicados pueden afectar al cálculo y deben contrastarse con los informes oficiales.
 
+**Moneda de visualización:** al analizar una empresa se puede elegir entre EUR, USD, GBP, CHF, CAD, JPY, AUD, NZD, SEK, NOK, CNY, HKD y MXN, además de conservar la moneda original. La conversión afecta a cotización, estados, gráficos y valoración; los múltiplos, porcentajes y número de acciones no cambian. Se aplica el tipo de cambio consultado también a los años históricos; no son conversiones con el cambio medio histórico de cada ejercicio. EquityScope obtiene el tipo de cambio de Yahoo Finance (pares directos, inversos o cruzados vía USD) y lo cachea 15 minutos. Si no hay cambio disponible, se informa del error y se mantienen visibles los importes en la moneda original.
+
 El LTM solo se calcula si hay cuatro trimestres consecutivos con ventas y su cash flow se puede emparejar (±20 días); si no, se usa el último ejercicio anual (`LTM*`) y la web muestra un aviso. Las cotizaciones en subunidades (`GBp`, `ZAc`, `ILA`) se pasan a la moneda principal. Si la moneda de los estados (`financialCurrency`) difiere de la de cotización, el precio se convierte con el par de Yahoo (`EURUSD=X`…); en los ADR el ratio ADR/acción no se ajusta y se avisa. El API devuelve `warnings` con todo esto.
 
 **Lista de seguimiento:** se guarda en `localStorage` en el navegador y perfil actuales. No requiere cuenta ni envía la lista al backend; no se sincroniza con otros dispositivos y se pierde si se borra el almacenamiento del sitio.
@@ -60,7 +62,7 @@ El plan gratuito de Render puede suspender el servicio tras inactividad; la prim
 
 ## Modelo
 
-La valoración proyecta los resultados a cinco años y combina los múltiplos PER ex-caja, EV/FCF, EV/EBITDA y EV/EBIT. Las cifras financieras se manejan en unidades de la moneda informada por Yahoo; la interfaz presenta las cifras de estados en millones.
+La valoración proyecta los resultados a cinco años y combina los múltiplos PER ex-caja, EV/FCF, EV/EBITDA y EV/EBIT. Los cálculos se realizan en unidades de la moneda informada por Yahoo; la interfaz presenta las cifras de estados en millones de la moneda seleccionada.
 
 - **EBITDA:** EBIT + depreciación y amortización. Márgenes EBIT y EBITDA: métrica / ventas.
 - **Deuda neta:** deuda a corto + deuda a largo − caja − inversiones a corto plazo. Los arrendamientos no se incluyen (entran solo en el capital invertido).

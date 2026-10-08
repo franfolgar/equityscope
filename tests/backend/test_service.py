@@ -1,6 +1,6 @@
 import unittest
 
-from backend.service import DataError, fetch_company, search_tickers
+from backend.service import DataError, fetch_company, get_conversion_rate, search_tickers
 from tests.backend.helpers import FakeTicker, QUARTER_DATES, cashflow_frame, factory_for
 
 
@@ -87,6 +87,54 @@ class FetchCompanyTests(unittest.TestCase):
         self.assertEqual(data["quoteAsOf"], "2024-10-04T00:00:00+00:00")
         self.assertIn("Inversiones a corto plazo", data["missingMetrics"])
         self.assertNotIn("Ingresos", data["missingMetrics"])
+
+
+class CurrencyConversionTests(unittest.TestCase):
+    def test_conversion_uses_direct_rate(self):
+        rate = get_conversion_rate(
+            "AUD",
+            "CAD",
+            factory_for(FakeTicker(), {"AUDCAD=X": [0.89, 0.90]}),
+        )
+        self.assertEqual(rate["source"], "AUD")
+        self.assertEqual(rate["target"], "CAD")
+        self.assertEqual(rate["rate"], 0.90)
+
+    def test_conversion_uses_inverse_rate_when_direct_pair_is_unavailable(self):
+        rate = get_conversion_rate(
+            "CHF",
+            "NZD",
+            factory_for(FakeTicker(), {"NZDCHF=X": [0.51, 0.50]}),
+        )
+        self.assertAlmostEqual(rate["rate"], 2.0)
+
+    def test_conversion_uses_usd_cross_rate(self):
+        rate = get_conversion_rate(
+            "EUR",
+            "CAD",
+            factory_for(FakeTicker(), {
+                "EURUSD=X": [1.08, 1.10],
+                "CADUSD=X": [0.72, 0.73],
+            }),
+        )
+        self.assertAlmostEqual(rate["rate"], 1.10 / 0.73)
+
+    def test_same_currency_needs_no_market_data(self):
+        rate = get_conversion_rate("EUR", "EUR")
+        self.assertEqual(rate["rate"], 1.0)
+
+    def test_invalid_currency_and_missing_rate_are_reported(self):
+        with self.assertRaises(DataError) as invalid:
+            get_conversion_rate("EU1", "USD")
+        self.assertEqual(invalid.exception.status_code, 400)
+        with self.assertRaises(DataError) as missing:
+            get_conversion_rate(
+                "XYZ",
+                "QRS",
+                factory_for(FakeTicker(), {}),
+            )
+        self.assertEqual(missing.exception.status_code, 502)
+        self.assertIn("No se pudo obtener el cambio", missing.exception.detail)
 
 
 class SearchTickersTests(unittest.TestCase):

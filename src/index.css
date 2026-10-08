@@ -102,6 +102,11 @@ button:disabled { cursor: not-allowed; opacity: .65; }
 .dot-separator { padding:0 4px; color:#bbc3cd!important; }
 .company-market { display:flex; align-items:flex-end; flex-direction:column; gap:3px; }
 .company-market span { color:#788596; font-size:10px; }
+.currency-control { display:flex; align-items:center; gap:7px; margin-bottom:2px; }
+.currency-control span { color:#788596; font-size:10px; }
+.currency-control select { max-width:205px; padding:6px 24px 6px 8px; color:#33445b; font-size:11px; background:#fff; border:1px solid #e2e8f0; border-radius:6px; outline:none; }
+.currency-control select:focus { border-color:#7591ed; box-shadow:0 0 0 3px #edf1ff; }
+.company-market .currency-error { max-width:330px; color:#a53a3a; text-align:right; }
 .company-market strong { color:#1e2c40; font-size:18px; font-variant-numeric:tabular-nums; }
 .company-market small { font-size:10px; }
 .stats-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:13px; margin-bottom:18px; }

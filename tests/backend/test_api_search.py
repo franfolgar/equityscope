@@ -32,6 +32,24 @@ class SearchEndpointTests(unittest.TestCase):
         self.assertEqual(response.json(), [])
         search.assert_called_once_with("", market="spain")
 
+    def test_currency_conversion_returns_rate(self):
+        expected = {
+            "source": "EUR",
+            "target": "USD",
+            "rate": 1.1,
+            "fetchedAt": "2026-10-08T07:00:00+00:00",
+        }
+        with patch("backend.main.get_conversion_rate", return_value=expected) as convert:
+            response = TestClient(app).get("/api/currency/convert", params={"from": "EUR", "to": "USD"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), expected)
+        convert.assert_called_once_with("EUR", "USD")
+
+    def test_currency_conversion_rejects_invalid_codes(self):
+        response = TestClient(app).get("/api/currency/convert", params={"from": "EU1", "to": "USD"})
+        self.assertEqual(response.status_code, 422)
+
 
 if __name__ == "__main__":
     unittest.main()

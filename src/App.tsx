@@ -17,7 +17,8 @@ import {
   Trash2,
   TrendingUp,
 } from 'lucide-react'
-import { fetchCompany, searchCompanies } from './api'
+import { fetchCompany, fetchCurrencyConversion, searchCompanies } from './api'
+import { convertCompanyCurrency, DISPLAY_CURRENCIES } from './currency'
 import type { CompanyData, CompanySearchResult, ValuationAssumptions, Verdict } from './types'
 import { parseWatchlist, WATCHLIST_STORAGE_KEY, type WatchlistItem } from './watchlist'
 import {
@@ -222,6 +223,14 @@ function App() {
   const [ticker, setTicker] = useState('')
   const [marketFilter, setMarketFilter] = useState('')
   const [company, setCompany] = useState<CompanyData | null>(null)
+  const [displayCurrency, setDisplayCurrency] = useState('')
+  const [currencyConversion, setCurrencyConversion] = useState<{
+    source: string
+    target: string
+    rate: number
+    fetchedAt: string
+  } | null>(null)
+  const [currencyError, setCurrencyError] = useState('')
   const [assumptions, setAssumptions] = useState<ValuationAssumptions | null>(null)
   const [analysisId, setAnalysisId] = useState(0)
   const [tab, setTab] = useState<Tab>('income')
@@ -238,6 +247,24 @@ function App() {
   const [watchlistError, setWatchlistError] = useState(initialWatchlist.error)
   const selectedSearchTicker = useRef('')
   const pendingRequest = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    if (!company || !displayCurrency || company.currency === displayCurrency) {
+      return
+    }
+
+    const controller = new AbortController()
+    void fetchCurrencyConversion(company.currency, displayCurrency, controller.signal)
+      .then((conversion) => setCurrencyConversion(conversion))
+      .catch((caught) => {
+        if (!controller.signal.aborted) {
+          setCurrencyConversion(null)
+          setCurrencyError(caught instanceof Error ? caught.message : 'No se pudo obtener el tipo de cambio.')
+        }
+      })
+
+    return () => controller.abort()
+  }, [company, displayCurrency])
 
   useEffect(() => {
     const syncStorage = (event: StorageEvent) => {
@@ -325,19 +352,40 @@ function App() {
     void analyze(undefined, result.ticker, result.market)
   }
 
+  const activeConversion = company &&
+    currencyConversion?.source === company.currency &&
+    currencyConversion.target === displayCurrency
+    ? currencyConversion
+    : null
+  const currencyLoading = Boolean(
+    company &&
+    displayCurrency !== company.currency &&
+    !activeConversion &&
+    !currencyError,
+  )
+  const displayedCurrency = activeConversion?.target ?? company?.currency ?? ''
+  const displayCompany = useMemo(
+    () => company
+      ? activeConversion
+        ? convertCompanyCurrency(company, activeConversion.rate, activeConversion.target)
+        : company
+      : null,
+    [company, activeConversion],
+  )
+
   const valuation = useMemo(
-    () => company && assumptions ? calculateValuation(company, assumptions) : null,
-    [company, assumptions],
+    () => displayCompany && assumptions ? calculateValuation(displayCompany, assumptions) : null,
+    [displayCompany, assumptions],
   )
   const historical = useMemo(
-    () => company && assumptions ? calculateHistory(company, assumptions.taxRate) : [],
-    [company, assumptions],
+    () => displayCompany && assumptions ? calculateHistory(displayCompany, assumptions.taxRate) : [],
+    [displayCompany, assumptions],
   )
   const tablePeriods = useMemo(
-    () => company && assumptions
-      ? calculateHistory({ ...company, periods: [...company.periods, company.ltm] }, assumptions.taxRate)
+    () => displayCompany && assumptions
+      ? calculateHistory({ ...displayCompany, periods: [...displayCompany.periods, displayCompany.ltm] }, assumptions.taxRate)
       : historical,
-    [company, assumptions, historical],
+    [displayCompany, assumptions, historical],
   )
 
   async function analyze(event?: FormEvent, symbol = ticker, market?: string) {
@@ -359,6 +407,9 @@ function App() {
       const result = await fetchCompany(symbol, controller.signal)
       if (controller.signal.aborted) return
       setCompany({ ...result, market: result.market || market || '' })
+      setDisplayCurrency(result.currency)
+      setCurrencyConversion(null)
+      setCurrencyError('')
       selectedSearchTicker.current = result.ticker
       setTicker(result.ticker)
       setAssumptions(defaultAssumptions(result))
@@ -429,7 +480,7 @@ function App() {
         values: [
           formatMultiple(row.multiple),
           formatMultiple(row.multiple === null ? null : row.multiple / (1 + assumptions.revenueGrowth)),
-          formatMoney(finalProjection?.prices[index] ?? null, company?.currency ?? 'USD'),
+          formatMoney(finalProjection?.prices[index] ?? null, displayedCurrency || 'USD'),
           formatOptionalPercent(valuation.methodCagr[index] ?? null),
         ],
       }))
@@ -596,15 +647,41 @@ function App() {
                 <div className="company-logo">{company.ticker.slice(0, 1)}</div>
                 <div>
                   <h2>{company.name}</h2>
-                  <span>{company.ticker}{company.market ? <> <span className="dot-separator">·</span> {company.market}</> : null} <span className="dot-separator">·</span> {company.currency}</span>
+                  <span>{company.ticker}{company.market ? <> <span className="dot-separator">·</span> {company.market}</> : null} <span className="dot-separator">·</span> {displayedCurrency}</span>
                 </div>
               </div>
               <div className="company-market">
+                <label className="currency-control">
+                  <span>Moneda de visualización</span>
+                  <select
+                    aria-label="Moneda de visualización"
+                    value={displayCurrency}
+                    onChange={(event) => {
+                      setDisplayCurrency(event.currentTarget.value)
+                      setCurrencyConversion(null)
+                      setCurrencyError('')
+                    }}
+                  >
+                    <option value={company.currency}>{company.currency} · Moneda original</option>
+                    {DISPLAY_CURRENCIES.filter((currency) => currency.code !== company.currency).map((currency) => (
+                      <option key={currency.code} value={currency.code}>{currency.label}</option>
+                    ))}
+                  </select>
+                </label>
                 <span>Precio actual</span>
-                <strong>{formatCurrency(company.price, company.currency)}</strong>
+                <strong>{formatCurrency(displayCompany?.price ?? company.price, displayedCurrency || company.currency)}</strong>
                 <small>{company.quoteAsOf
                   ? `Cotización: ${formatDateTime(company.quoteAsOf)}`
                   : `Consulta API: ${formatDateTime(company.fetchedAt)}`}</small>
+                {displayCurrency !== company.currency && currencyLoading && (
+                  <small role="status">Obteniendo tipo de cambio; se muestran importes en {company.currency} mientras tanto.</small>
+                )}
+                {displayCurrency !== company.currency && currencyError && (
+                  <small className="currency-error" role="alert">{currencyError} Se muestran importes en {company.currency}.</small>
+                )}
+                {activeConversion && (
+                  <small>1 {activeConversion.source} = {new Intl.NumberFormat('es-ES', { maximumFractionDigits: 5 }).format(activeConversion.rate)} {activeConversion.target} · aplicado también a años históricos · cambio de {formatDateTime(activeConversion.fetchedAt)}</small>
+                )}
               </div>
             </section>
 
@@ -638,10 +715,10 @@ function App() {
             </details>
 
             <section className="stats-grid" aria-label="Métricas principales">
-              <StatCard label="Precio actual" value={formatCurrency(company.price, company.currency)} detail="Cotización más reciente" icon={<Activity size={17} />} />
+              <StatCard label="Precio actual" value={formatCurrency(displayCompany?.price ?? company.price, displayedCurrency || company.currency)} detail="Cotización más reciente" icon={<Activity size={17} />} />
               <StatCard
                 label="Precio objetivo · 5 años"
-                value={formatMoney(valuation.targetPrice, company.currency)}
+                value={formatMoney(valuation.targetPrice, displayedCurrency || company.currency)}
                 detail={`Media de ${applicableMethods} de 4 métodos aplicables`}
                 icon={<TrendingUp size={17} />}
                 accent="green"
@@ -692,7 +769,7 @@ function App() {
                   <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
                     {tab === 'income' && (
                       <>
-                        <div className="table-title"><div><FileSpreadsheet size={16} /><strong>Income Statement</strong></div><span>En millones, excepto datos por acción</span></div>
+                        <div className="table-title"><div><FileSpreadsheet size={16} /><strong>Income Statement</strong></div><span>Millones de {displayedCurrency}; acciones en millones</span></div>
                         <DataTable
                           headers={tablePeriods.map((period) => period.period)}
                           rows={[
@@ -711,7 +788,7 @@ function App() {
 
                     {tab === 'cash' && (
                       <>
-                        <div className="table-title"><div><Activity size={16} /><strong>Cash Flow & ROIC</strong></div><span>En millones</span></div>
+                        <div className="table-title"><div><Activity size={16} /><strong>Cash Flow & ROIC</strong></div><span>Millones de {displayedCurrency}</span></div>
                         <DataTable
                           headers={tablePeriods.map((period) => period.period)}
                           rows={[
@@ -735,7 +812,7 @@ function App() {
                           headers={['LTM', 'NTM estimado', 'Objetivo', 'CAGR 5a']}
                           rows={[
                             ...valuationRows,
-                            { label: 'Precio objetivo promedio', values: ['—', '—', formatMoney(valuation.targetPrice, company.currency), formatOptionalPercent(valuation.cagr)], emphasis: true },
+                            { label: 'Precio objetivo promedio', values: ['—', '—', formatMoney(valuation.targetPrice, displayedCurrency || company.currency), formatOptionalPercent(valuation.cagr)], emphasis: true },
                           ]}
                         />
                         <div className="valuation-footnote">Los múltiplos NTM se aproximan usando el crecimiento de ventas como referencia. n/a: el método no aplica (base ≤ 0) y se excluye de la media. No es una recomendación de inversión.</div>
@@ -747,8 +824,8 @@ function App() {
                         <ChartsPanel
                           history={valuation.history}
                           projections={valuation.projections}
-                          price={company.price}
-                          currency={company.currency}
+                          price={displayCompany?.price ?? company.price}
+                          currency={displayedCurrency || company.currency}
                           historicalLastYear={company.periods.at(-1)?.period ?? ''}
                         />
                       </Suspense>
@@ -808,7 +885,7 @@ function App() {
                   <div className="returns-heading"><span className="returns-icon"><TrendingUp size={17} /></span><div><strong>Retorno anualizado</strong><small>Valoración a 5 años</small></div></div>
                   <div className="returns-value">{formatOptionalPercent(valuation.cagr)}<span>/ año</span></div>
                   <div className="returns-progress"><span style={{ width: `${Math.min(100, Math.max(0, (valuation.cagr ?? 0) * 400))}%` }} /></div>
-                  <div className="returns-caption"><span>Precio objetivo año 5</span><strong>{formatMoney(valuation.targetPrice, company.currency)}</strong></div>
+                  <div className="returns-caption"><span>Precio objetivo año 5</span><strong>{formatMoney(valuation.targetPrice, displayedCurrency || company.currency)}</strong></div>
                 </Card>
 
                 <Card className="method-card" >

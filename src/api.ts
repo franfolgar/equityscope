@@ -1,4 +1,4 @@
-import type { CompanyData, CompanySearchResult } from './types'
+import type { CompanyData, CompanySearchResult, CurrencyConversion } from './types'
 
 const API_URL =
   import.meta.env.VITE_API_URL?.replace(/\/$/, '') ??
@@ -28,6 +28,22 @@ function isCompanySearchResult(value: unknown): value is CompanySearchResult {
     typeof value.name === 'string' &&
     'market' in value &&
     typeof value.market === 'string'
+  )
+}
+
+function isCurrencyConversion(value: unknown): value is CurrencyConversion {
+  if (typeof value !== 'object' || value === null) return false
+  return (
+    'source' in value &&
+    typeof value.source === 'string' &&
+    'target' in value &&
+    typeof value.target === 'string' &&
+    'rate' in value &&
+    typeof value.rate === 'number' &&
+    Number.isFinite(value.rate) &&
+    value.rate > 0 &&
+    'fetchedAt' in value &&
+    typeof value.fetchedAt === 'string'
   )
 }
 
@@ -118,6 +134,49 @@ export async function searchCompanies(
   }
   if (!Array.isArray(payload) || !payload.every(isCompanySearchResult)) {
     throw new Error('El buscador respondió con resultados en un formato no válido.')
+  }
+  return payload
+}
+
+export async function fetchCurrencyConversion(
+  source: string,
+  target: string,
+  signal?: AbortSignal,
+): Promise<CurrencyConversion> {
+  if (!/^[A-Z]{3}$/.test(source) || !/^[A-Z]{3}$/.test(target)) {
+    throw new Error('Código de moneda no válido.')
+  }
+  if (source === target) {
+    return { source, target, rate: 1, fetchedAt: new Date().toISOString() }
+  }
+  if (!API_URL) {
+    throw new Error('El servicio de conversión de moneda no está configurado.')
+  }
+
+  let response: Response
+  try {
+    const params = new URLSearchParams({ from: source, to: target })
+    response = await fetch(`${API_URL}/api/currency/convert?${params}`, { signal })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error
+    if (error instanceof TypeError) {
+      throw new Error(`No se pudo conectar con el servicio de cambio en ${API_URL}.`)
+    }
+    throw error
+  }
+  if (!response.headers.get('content-type')?.includes('application/json')) {
+    throw new Error(`El servicio de cambio respondió en un formato no JSON (HTTP ${response.status}).`)
+  }
+  const payload: unknown = await response.json()
+  if (!response.ok) {
+    const detail =
+      typeof payload === 'object' && payload !== null && 'detail' in payload
+        ? (payload as { detail?: unknown }).detail
+        : undefined
+    throw new Error(typeof detail === 'string' && detail ? detail : `No se pudo convertir ${source} a ${target}.`)
+  }
+  if (!isCurrencyConversion(payload) || payload.source !== source || payload.target !== target) {
+    throw new Error('El servicio de cambio devolvió una respuesta no válida.')
   }
   return payload
 }

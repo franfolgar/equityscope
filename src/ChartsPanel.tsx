@@ -56,7 +56,7 @@ export default function ChartsPanel({
   return (
     <div className="charts-stack">
       <div className="chart-block">
-        <div className="chart-title"><div><strong>Ventas, FCF y ROIC</strong><span>Histórico y proyección a cinco años</span></div></div>
+        <div className="chart-title"><div><strong>Ventas, FCF y ROIC</strong><span>Millones de {currency} · histórico y proyección a cinco años</span></div></div>
         <div className="chart-container">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={trendData} margin={{ top: 6, right: 8, bottom: 4, left: 0 }}>
@@ -64,7 +64,7 @@ export default function ChartsPanel({
               <XAxis dataKey="year" tick={{ fontSize: 11, fill: '#83909e' }} axisLine={false} tickLine={false} />
               <YAxis yAxisId="money" tick={{ fontSize: 11, fill: '#83909e' }} axisLine={false} tickLine={false} width={42} />
               <YAxis yAxisId="percent" orientation="right" tick={{ fontSize: 11, fill: '#83909e' }} axisLine={false} tickLine={false} width={38} unit="%" />
-              <Tooltip formatter={(value, name) => [typeof value === 'number' ? `${value.toFixed(1)}${name === 'ROIC' ? '%' : ' M'}` : value, name]} />
+              <Tooltip formatter={(value, name) => [typeof value === 'number' ? `${value.toFixed(1)}${name === 'ROIC' ? '%' : ` M ${currency}`}` : value, name]} />
               <Legend />
               <ReferenceLine yAxisId="money" x={historicalLastYear} stroke="#bdc6d0" strokeDasharray="4 4" />
               <Line yAxisId="money" type="monotone" dataKey="Ventas" stroke="#365fe5" strokeWidth={2.5} dot={false} />

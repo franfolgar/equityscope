@@ -8,7 +8,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from .ratelimit import SlidingWindowLimiter, allow_analysis_request
-from .service import DataError, get_company, search_tickers
+from .service import DataError, get_company, get_conversion_rate, search_tickers
 
 app = FastAPI(title="EquityScope Finance API", version="1.1.0")
 allowed_origins = [
@@ -79,6 +79,24 @@ def search_companies(
         )
     try:
         return search_tickers(q, market=market)
+    except DataError as error:
+        raise HTTPException(status_code=error.status_code, detail=error.detail) from error
+
+
+@app.get("/api/currency/convert")
+def convert_currency(
+    request: Request,
+    source: str = Query(alias="from", min_length=3, max_length=3, pattern=r"^[A-Z]{3}$"),
+    target: str = Query(alias="to", min_length=3, max_length=3, pattern=r"^[A-Z]{3}$"),
+) -> dict[str, Any]:
+    if not allow_analysis_request(per_ip_limiter, global_limiter, client_ip(request)):
+        raise HTTPException(
+            status_code=429,
+            detail="Demasiadas consultas; espera un minuto e inténtalo de nuevo.",
+            headers={"Retry-After": "60"},
+        )
+    try:
+        return get_conversion_rate(source, target)
     except DataError as error:
         raise HTTPException(status_code=error.status_code, detail=error.detail) from error
 
