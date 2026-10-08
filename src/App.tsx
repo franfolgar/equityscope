@@ -456,7 +456,7 @@ function App() {
             <h1>Valoración de empresas</h1>
             <p>Análisis financiero y valoración intrínseca en un solo lugar.</p>
           </div>
-          <div className="model-chip"><ShieldCheck size={15} /> Modelo IDC · 5 años</div>
+          <div className="model-chip"><ShieldCheck size={15} /> Proyección · 5 años</div>
         </section>
 
         <form className="search-panel" onSubmit={submitSearch}>
@@ -813,7 +813,7 @@ function App() {
 
                 <Card className="method-card" >
                   <div className="method-title" id="metodologia"><ShieldCheck size={16} /><strong>Metodología</strong></div>
-                  <p>Réplicas de las fórmulas IDC: PER ex-caja, EV/FCF, EV/EBITDA y EV/EBIT. Los métodos con base no positiva se excluyen de la media. La deuda neta proyectada baja con el FCF generado; dividendos y recompras no están modelados. Las proyecciones y múltiplos objetivo son editables.</p>
+                  <p>La valoración combina PER ex-caja, EV/FCF, EV/EBITDA y EV/EBIT. Los métodos con base no positiva se excluyen de la media. La deuda neta proyectada baja con el FCF generado; dividendos y recompras no están modelados. Las proyecciones y múltiplos objetivo son editables.</p>
                   <div className="method-source"><span>Fuente financiera</span><strong>{company.source}</strong></div>
                   <div className="method-source"><span>Datos consultados</span><strong>{formatDateTime(company.fetchedAt)}</strong></div>
                   <div className="method-source"><span>Dilución implícita</span><strong>{formatPercent(latestDilution)}</strong></div>

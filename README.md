@@ -60,7 +60,7 @@ El plan gratuito de Render puede suspender el servicio tras inactividad; la prim
 
 ## Modelo
 
-Se ha seguido la plantilla IDC adjunta. Las cifras financieras se manejan en unidades de la moneda informada por Yahoo; la interfaz presenta las cifras de estados en millones.
+La valoración proyecta los resultados a cinco años y combina los múltiplos PER ex-caja, EV/FCF, EV/EBITDA y EV/EBIT. Las cifras financieras se manejan en unidades de la moneda informada por Yahoo; la interfaz presenta las cifras de estados en millones.
 
 - **EBITDA:** EBIT + depreciación y amortización. Márgenes EBIT y EBITDA: métrica / ventas.
 - **Deuda neta:** deuda a corto + deuda a largo − caja − inversiones a corto plazo. Los arrendamientos no se incluyen (entran solo en el capital invertido).
