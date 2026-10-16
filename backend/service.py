@@ -9,6 +9,9 @@ import threading
 from datetime import date, datetime, timezone
 from typing import Any, Callable, Optional
 
+import requests as _requests
+from requests.adapters import HTTPAdapter as _HTTPAdapter
+
 from .cache import TTLCache
 from .statements import (
     ALIASES,
@@ -50,6 +53,25 @@ MARKET_LABELS = {
     "japan": "Japón",
 }
 
+# ---------------------------------------------------------------------------
+# Timeout por petición HTTP a Yahoo Finance (en segundos). Evita que un
+# upstream lento bloquee slots del semáforo (y del thread-pool) de forma
+# indefinida.
+# ---------------------------------------------------------------------------
+_UPSTREAM_HTTP_TIMEOUT = float(os.getenv("UPSTREAM_HTTP_TIMEOUT", "15"))
+
+
+class _TimeoutAdapter(_HTTPAdapter):
+    """``HTTPAdapter`` que inyecta un timeout por defecto en cada petición."""
+
+    def __init__(self, timeout: float = _UPSTREAM_HTTP_TIMEOUT, **kwargs: Any) -> None:
+        self._timeout = timeout
+        super().__init__(**kwargs)
+
+    def send(self, request: Any, **kwargs: Any) -> Any:  # type: ignore[override]
+        kwargs.setdefault("timeout", self._timeout)
+        return super().send(request, **kwargs)
+
 
 class DataError(Exception):
     """Error esperado de datos; ``main.py`` lo traduce a una respuesta HTTP."""
@@ -76,7 +98,11 @@ _currency_cache = TTLCache(900, max_items=128)
 def _default_ticker_factory(symbol: str) -> Any:
     import yfinance as yf  # import diferido: los tests no lo necesitan
 
-    return yf.Ticker(symbol)
+    session = _requests.Session()
+    adapter = _TimeoutAdapter()
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return yf.Ticker(symbol, session=session)
 
 
 def _default_search_factory(query: str) -> Any:

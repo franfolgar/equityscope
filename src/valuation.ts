@@ -198,6 +198,8 @@ export function calculateValuation(
 
   return {
     history: history.slice(-5),
+    fullHistory: history,
+    allPeriods,
     projections,
     targetPrice,
     upside,

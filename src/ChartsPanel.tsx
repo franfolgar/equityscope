@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import {
   CartesianGrid,
   ComposedChart,
@@ -33,25 +34,32 @@ export default function ChartsPanel({
   currency: string
   historicalLastYear: string
 }) {
-  const trendData = [
-    ...history.map((period) => ({
-      year: period.period,
-      Ventas: period.revenue / 1_000_000,
-      FCF: period.fcf / 1_000_000,
-      ROIC: period.roic * 100,
-    })),
-    ...projections.map((projection) => ({
-      year: `Año ${projection.year}`,
-      Ventas: projection.revenue / 1_000_000,
-      FCF: projection.fcf / 1_000_000,
-      ROIC: projection.roic * 100,
-    })),
-  ]
-  const targetData = projections.map((projection) => ({
-    year: `Año ${projection.year}`,
-    'Precio objetivo': projection.averagePrice,
-    'Precio actual': price,
-  }))
+  const trendData = useMemo(
+    () => [
+      ...history.map((period) => ({
+        year: period.period,
+        Ventas: period.revenue / 1_000_000,
+        FCF: period.fcf / 1_000_000,
+        ROIC: period.roic * 100,
+      })),
+      ...projections.map((projection) => ({
+        year: `Año ${projection.year}`,
+        Ventas: projection.revenue / 1_000_000,
+        FCF: projection.fcf / 1_000_000,
+        ROIC: projection.roic * 100,
+      })),
+    ],
+    [history, projections],
+  )
+  const targetData = useMemo(
+    () =>
+      projections.map((projection) => ({
+        year: `Año ${projection.year}`,
+        'Precio objetivo': projection.averagePrice,
+        'Precio actual': price,
+      })),
+    [projections, price],
+  )
 
   return (
     <div className="charts-stack">

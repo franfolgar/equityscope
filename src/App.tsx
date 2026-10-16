@@ -22,7 +22,6 @@ import { convertCompanyCurrency, DISPLAY_CURRENCIES } from './currency'
 import type { CompanyData, CompanySearchResult, ValuationAssumptions, Verdict } from './types'
 import { parseWatchlist, WATCHLIST_STORAGE_KEY, type WatchlistItem } from './watchlist'
 import {
-  calculateHistory,
   calculateValuation,
   defaultAssumptions,
   qualityFlags,
@@ -377,16 +376,8 @@ function App() {
     () => displayCompany && assumptions ? calculateValuation(displayCompany, assumptions) : null,
     [displayCompany, assumptions],
   )
-  const historical = useMemo(
-    () => displayCompany && assumptions ? calculateHistory(displayCompany, assumptions.taxRate) : [],
-    [displayCompany, assumptions],
-  )
-  const tablePeriods = useMemo(
-    () => displayCompany && assumptions
-      ? calculateHistory({ ...displayCompany, periods: [...displayCompany.periods, displayCompany.ltm] }, assumptions.taxRate)
-      : historical,
-    [displayCompany, assumptions, historical],
-  )
+  const historical = useMemo(() => valuation?.fullHistory ?? [], [valuation])
+  const tablePeriods = useMemo(() => valuation?.allPeriods ?? [], [valuation])
 
   async function analyze(event?: FormEvent, symbol = ticker, market?: string) {
     event?.preventDefault()
@@ -458,7 +449,7 @@ function App() {
   }
 
   const latest = historical.at(-1)
-  const redFlags = valuation ? qualityFlags(historical) : []
+  const redFlags = useMemo(() => (valuation ? qualityFlags(historical) : []), [valuation, historical])
   const latestDilution = historical.length > 1
     ? historical[0].dilutedShares > 0
       ? (latest?.dilutedShares ?? 0) / historical[0].dilutedShares - 1

@@ -118,7 +118,12 @@ export interface QualityFlag {
 }
 
 export interface ValuationResult {
+  /** Last 5 annual computed periods (for charts). */
   history: ComputedPeriod[]
+  /** All annual computed periods (not limited to last 5). */
+  fullHistory: ComputedPeriod[]
+  /** Annual periods + LTM (for table display). */
+  allPeriods: ComputedPeriod[]
   projections: Projection[]
   targetPrice: number | null
   upside: number | null
