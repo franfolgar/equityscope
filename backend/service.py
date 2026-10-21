@@ -95,19 +95,162 @@ _search_cache = TTLCache(300, max_items=128)
 _currency_cache = TTLCache(900, max_items=128)
 
 
+_BROWSER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
+
+class _SearchResult:
+    def __init__(self, quotes: list[dict[str, Any]]) -> None:
+        self.quotes = quotes
+
+
+FALLBACK_MARKET_COMPANIES: dict[str, list[dict[str, str]]] = {
+    "spain": [
+        {"symbol": "ITX.MC", "quoteType": "EQUITY", "longName": "Industria de Diseño Textil, S.A.", "exchange": "MCE", "exchDisp": "Bolsa de Madrid"},
+        {"symbol": "SAN.MC", "quoteType": "EQUITY", "longName": "Banco Santander, S.A.", "exchange": "MCE", "exchDisp": "Bolsa de Madrid"},
+        {"symbol": "BBVA.MC", "quoteType": "EQUITY", "longName": "Banco Bilbao Vizcaya Argentaria, S.A.", "exchange": "MCE", "exchDisp": "Bolsa de Madrid"},
+        {"symbol": "IBE.MC", "quoteType": "EQUITY", "longName": "Iberdrola, S.A.", "exchange": "MCE", "exchDisp": "Bolsa de Madrid"},
+        {"symbol": "TEF.MC", "quoteType": "EQUITY", "longName": "Telefónica, S.A.", "exchange": "MCE", "exchDisp": "Bolsa de Madrid"},
+        {"symbol": "REP.MC", "quoteType": "EQUITY", "longName": "Repsol, S.A.", "exchange": "MCE", "exchDisp": "Bolsa de Madrid"},
+        {"symbol": "AMS.MC", "quoteType": "EQUITY", "longName": "Amadeus IT Group, S.A.", "exchange": "MCE", "exchDisp": "Bolsa de Madrid"},
+        {"symbol": "FER.MC", "quoteType": "EQUITY", "longName": "Ferrovial SE", "exchange": "MCE", "exchDisp": "Bolsa de Madrid"},
+        {"symbol": "CABK.MC", "quoteType": "EQUITY", "longName": "CaixaBank, S.A.", "exchange": "MCE", "exchDisp": "Bolsa de Madrid"},
+        {"symbol": "ACS.MC", "quoteType": "EQUITY", "longName": "ACS, Actividades de Construcción y Servicios, S.A.", "exchange": "MCE", "exchDisp": "Bolsa de Madrid"},
+    ],
+    "nasdaq": [
+        {"symbol": "AAPL", "quoteType": "EQUITY", "longName": "Apple Inc.", "exchange": "NMS", "exchDisp": "NASDAQ"},
+        {"symbol": "MSFT", "quoteType": "EQUITY", "longName": "Microsoft Corporation", "exchange": "NMS", "exchDisp": "NASDAQ"},
+        {"symbol": "GOOGL", "quoteType": "EQUITY", "longName": "Alphabet Inc.", "exchange": "NMS", "exchDisp": "NASDAQ"},
+        {"symbol": "AMZN", "quoteType": "EQUITY", "longName": "Amazon.com, Inc.", "exchange": "NMS", "exchDisp": "NASDAQ"},
+        {"symbol": "NVDA", "quoteType": "EQUITY", "longName": "NVIDIA Corporation", "exchange": "NMS", "exchDisp": "NASDAQ"},
+        {"symbol": "META", "quoteType": "EQUITY", "longName": "Meta Platforms, Inc.", "exchange": "NMS", "exchDisp": "NASDAQ"},
+        {"symbol": "TSLA", "quoteType": "EQUITY", "longName": "Tesla, Inc.", "exchange": "NMS", "exchDisp": "NASDAQ"},
+        {"symbol": "AVGO", "quoteType": "EQUITY", "longName": "Broadcom Inc.", "exchange": "NMS", "exchDisp": "NASDAQ"},
+        {"symbol": "COST", "quoteType": "EQUITY", "longName": "Costco Wholesale Corporation", "exchange": "NMS", "exchDisp": "NASDAQ"},
+        {"symbol": "ASML", "quoteType": "EQUITY", "longName": "ASML Holding N.V.", "exchange": "NMS", "exchDisp": "NASDAQ"},
+    ],
+    "nyse": [
+        {"symbol": "JPM", "quoteType": "EQUITY", "longName": "JPMorgan Chase & Co.", "exchange": "NYQ", "exchDisp": "NYSE"},
+        {"symbol": "V", "quoteType": "EQUITY", "longName": "Visa Inc.", "exchange": "NYQ", "exchDisp": "NYSE"},
+        {"symbol": "JNJ", "quoteType": "EQUITY", "longName": "Johnson & Johnson", "exchange": "NYQ", "exchDisp": "NYSE"},
+        {"symbol": "WMT", "quoteType": "EQUITY", "longName": "Walmart Inc.", "exchange": "NYQ", "exchDisp": "NYSE"},
+        {"symbol": "PG", "quoteType": "EQUITY", "longName": "The Procter & Gamble Company", "exchange": "NYQ", "exchDisp": "NYSE"},
+        {"symbol": "UNH", "quoteType": "EQUITY", "longName": "UnitedHealth Group Incorporated", "exchange": "NYQ", "exchDisp": "NYSE"},
+        {"symbol": "HD", "quoteType": "EQUITY", "longName": "The Home Depot, Inc.", "exchange": "NYQ", "exchDisp": "NYSE"},
+        {"symbol": "MA", "quoteType": "EQUITY", "longName": "Mastercard Incorporated", "exchange": "NYQ", "exchDisp": "NYSE"},
+        {"symbol": "BAC", "quoteType": "EQUITY", "longName": "Bank of America Corporation", "exchange": "NYQ", "exchDisp": "NYSE"},
+        {"symbol": "KO", "quoteType": "EQUITY", "longName": "The Coca-Cola Company", "exchange": "NYQ", "exchDisp": "NYSE"},
+    ],
+    "london": [
+        {"symbol": "SHEL.L", "quoteType": "EQUITY", "longName": "Shell plc", "exchange": "LSE", "exchDisp": "London Stock Exchange"},
+        {"symbol": "AZN.L", "quoteType": "EQUITY", "longName": "AstraZeneca PLC", "exchange": "LSE", "exchDisp": "London Stock Exchange"},
+        {"symbol": "HSBA.L", "quoteType": "EQUITY", "longName": "HSBC Holdings plc", "exchange": "LSE", "exchDisp": "London Stock Exchange"},
+        {"symbol": "ULVR.L", "quoteType": "EQUITY", "longName": "Unilever PLC", "exchange": "LSE", "exchDisp": "London Stock Exchange"},
+        {"symbol": "BP.L", "quoteType": "EQUITY", "longName": "BP p.l.c.", "exchange": "LSE", "exchDisp": "London Stock Exchange"},
+        {"symbol": "GSK.L", "quoteType": "EQUITY", "longName": "GSK plc", "exchange": "LSE", "exchDisp": "London Stock Exchange"},
+        {"symbol": "RIO.L", "quoteType": "EQUITY", "longName": "Rio Tinto Group", "exchange": "LSE", "exchDisp": "London Stock Exchange"},
+        {"symbol": "DGE.L", "quoteType": "EQUITY", "longName": "Diageo plc", "exchange": "LSE", "exchDisp": "London Stock Exchange"},
+        {"symbol": "REL.L", "quoteType": "EQUITY", "longName": "RELX PLC", "exchange": "LSE", "exchDisp": "London Stock Exchange"},
+        {"symbol": "BATS.L", "quoteType": "EQUITY", "longName": "British American Tobacco p.l.c.", "exchange": "LSE", "exchDisp": "London Stock Exchange"},
+    ],
+    "germany": [
+        {"symbol": "SAP.DE", "quoteType": "EQUITY", "longName": "SAP SE", "exchange": "GER", "exchDisp": "XETRA"},
+        {"symbol": "SIE.DE", "quoteType": "EQUITY", "longName": "Siemens Aktiengesellschaft", "exchange": "GER", "exchDisp": "XETRA"},
+        {"symbol": "ALV.DE", "quoteType": "EQUITY", "longName": "Allianz SE", "exchange": "GER", "exchDisp": "XETRA"},
+        {"symbol": "DTE.DE", "quoteType": "EQUITY", "longName": "Deutsche Telekom AG", "exchange": "GER", "exchDisp": "XETRA"},
+        {"symbol": "AIR.DE", "quoteType": "EQUITY", "longName": "Airbus SE", "exchange": "GER", "exchDisp": "XETRA"},
+        {"symbol": "MBG.DE", "quoteType": "EQUITY", "longName": "Mercedes-Benz Group AG", "exchange": "GER", "exchDisp": "XETRA"},
+        {"symbol": "BMW.DE", "quoteType": "EQUITY", "longName": "Bayerische Motoren Werke AG", "exchange": "GER", "exchDisp": "XETRA"},
+        {"symbol": "BAS.DE", "quoteType": "EQUITY", "longName": "BASF SE", "exchange": "GER", "exchDisp": "XETRA"},
+        {"symbol": "MUV2.DE", "quoteType": "EQUITY", "longName": "Münchener Rückversicherungs-Gesellschaft AG", "exchange": "GER", "exchDisp": "XETRA"},
+        {"symbol": "BAYN.DE", "quoteType": "EQUITY", "longName": "Bayer Aktiengesellschaft", "exchange": "GER", "exchDisp": "XETRA"},
+    ],
+    "france": [
+        {"symbol": "MC.PA", "quoteType": "EQUITY", "longName": "LVMH Moët Hennessy - Louis Vuitton, Société Européenne", "exchange": "PAR", "exchDisp": "Euronext Paris"},
+        {"symbol": "OR.PA", "quoteType": "EQUITY", "longName": "L'Oréal S.A.", "exchange": "PAR", "exchDisp": "Euronext Paris"},
+        {"symbol": "RMS.PA", "quoteType": "EQUITY", "longName": "Hermès International Société en commandite par actions", "exchange": "PAR", "exchDisp": "Euronext Paris"},
+        {"symbol": "TTE.PA", "quoteType": "EQUITY", "longName": "TotalEnergies SE", "exchange": "PAR", "exchDisp": "Euronext Paris"},
+        {"symbol": "SAN.PA", "quoteType": "EQUITY", "longName": "Sanofi", "exchange": "PAR", "exchDisp": "Euronext Paris"},
+        {"symbol": "AIR.PA", "quoteType": "EQUITY", "longName": "Airbus SE", "exchange": "PAR", "exchDisp": "Euronext Paris"},
+        {"symbol": "SU.PA", "quoteType": "EQUITY", "longName": "Schneider Electric S.E.", "exchange": "PAR", "exchDisp": "Euronext Paris"},
+        {"symbol": "AI.PA", "quoteType": "EQUITY", "longName": "L'Air Liquide S.A.", "exchange": "PAR", "exchDisp": "Euronext Paris"},
+        {"symbol": "BNP.PA", "quoteType": "EQUITY", "longName": "BNP Paribas SA", "exchange": "PAR", "exchDisp": "Euronext Paris"},
+        {"symbol": "EL.PA", "quoteType": "EQUITY", "longName": "EssilorLuxottica Société anonyme", "exchange": "PAR", "exchDisp": "Euronext Paris"},
+    ],
+    "canada": [
+        {"symbol": "RY.TO", "quoteType": "EQUITY", "longName": "Royal Bank of Canada", "exchange": "TOR", "exchDisp": "Toronto Stock Exchange"},
+        {"symbol": "TD.TO", "quoteType": "EQUITY", "longName": "The Toronto-Dominion Bank", "exchange": "TOR", "exchDisp": "Toronto Stock Exchange"},
+        {"symbol": "ENB.TO", "quoteType": "EQUITY", "longName": "Enbridge Inc.", "exchange": "TOR", "exchDisp": "Toronto Stock Exchange"},
+        {"symbol": "CNR.TO", "quoteType": "EQUITY", "longName": "Canadian National Railway Company", "exchange": "TOR", "exchDisp": "Toronto Stock Exchange"},
+        {"symbol": "CP.TO", "quoteType": "EQUITY", "longName": "Canadian Pacific Kansas City Limited", "exchange": "TOR", "exchDisp": "Toronto Stock Exchange"},
+        {"symbol": "CNQ.TO", "quoteType": "EQUITY", "longName": "Canadian Natural Resources Limited", "exchange": "TOR", "exchDisp": "Toronto Stock Exchange"},
+        {"symbol": "BMO.TO", "quoteType": "EQUITY", "longName": "Bank of Montreal", "exchange": "TOR", "exchDisp": "Toronto Stock Exchange"},
+        {"symbol": "BNS.TO", "quoteType": "EQUITY", "longName": "The Bank of Nova Scotia", "exchange": "TOR", "exchDisp": "Toronto Stock Exchange"},
+        {"symbol": "ATD.TO", "quoteType": "EQUITY", "longName": "Alimentation Couche-Tard Inc.", "exchange": "TOR", "exchDisp": "Toronto Stock Exchange"},
+        {"symbol": "TRI.TO", "quoteType": "EQUITY", "longName": "Thomson Reuters Corporation", "exchange": "TOR", "exchDisp": "Toronto Stock Exchange"},
+    ],
+    "japan": [
+        {"symbol": "7203.T", "quoteType": "EQUITY", "longName": "Toyota Motor Corporation", "exchange": "JPX", "exchDisp": "Tokyo Stock Exchange"},
+        {"symbol": "6758.T", "quoteType": "EQUITY", "longName": "Sony Group Corporation", "exchange": "JPX", "exchDisp": "Tokyo Stock Exchange"},
+        {"symbol": "9984.T", "quoteType": "EQUITY", "longName": "SoftBank Group Corp.", "exchange": "JPX", "exchDisp": "Tokyo Stock Exchange"},
+        {"symbol": "6861.T", "quoteType": "EQUITY", "longName": "Keyence Corporation", "exchange": "JPX", "exchDisp": "Tokyo Stock Exchange"},
+        {"symbol": "8306.T", "quoteType": "EQUITY", "longName": "Mitsubishi UFJ Financial Group, Inc.", "exchange": "JPX", "exchDisp": "Tokyo Stock Exchange"},
+        {"symbol": "6501.T", "quoteType": "EQUITY", "longName": "Hitachi, Ltd.", "exchange": "JPX", "exchDisp": "Tokyo Stock Exchange"},
+        {"symbol": "7974.T", "quoteType": "EQUITY", "longName": "Nintendo Co., Ltd.", "exchange": "JPX", "exchDisp": "Tokyo Stock Exchange"},
+        {"symbol": "4063.T", "quoteType": "EQUITY", "longName": "Shin-Etsu Chemical Co., Ltd.", "exchange": "JPX", "exchDisp": "Tokyo Stock Exchange"},
+        {"symbol": "8035.T", "quoteType": "EQUITY", "longName": "Tokyo Electron Limited", "exchange": "JPX", "exchDisp": "Tokyo Stock Exchange"},
+        {"symbol": "9432.T", "quoteType": "EQUITY", "longName": "Nippon Telegraph and Telephone Corporation", "exchange": "JPX", "exchDisp": "Tokyo Stock Exchange"},
+    ],
+}
+
+
 def _default_ticker_factory(symbol: str) -> Any:
     import yfinance as yf  # import diferido: los tests no lo necesitan
 
-    session = _requests.Session()
-    adapter = _TimeoutAdapter()
-    session.mount("http://", adapter)
-    session.mount("https://", adapter)
+    try:
+        from yfinance._http import new_session
+        session = new_session()
+    except Exception:
+        session = _requests.Session()
+        session.headers.update(_BROWSER_HEADERS)
+
+    if hasattr(session, "mount"):
+        adapter = _TimeoutAdapter()
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
     return yf.Ticker(symbol, session=session)
 
 
 def _default_search_factory(query: str) -> Any:
-    import yfinance as yf
+    for base_url in ("https://query1.finance.yahoo.com", "https://query2.finance.yahoo.com"):
+        try:
+            resp = _requests.get(
+                f"{base_url}/v1/finance/search",
+                params={
+                    "q": query,
+                    "quotesCount": 12,
+                    "newsCount": 0,
+                    "listsCount": 0,
+                    "enableFuzzyQuery": False,
+                },
+                headers=_BROWSER_HEADERS,
+                timeout=8,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                quotes = data.get("quotes", [])
+                if quotes:
+                    return _SearchResult(quotes)
+        except Exception:
+            pass
 
+    import yfinance as yf
     return yf.Search(
         query,
         max_results=12,
@@ -119,10 +262,17 @@ def _default_search_factory(query: str) -> Any:
 
 
 def _default_market_factory(market: str) -> Any:
-    import yfinance as yf
+    try:
+        import yfinance as yf
 
-    query = yf.EquityQuery("is-in", ["exchange", *MARKET_EXCHANGES[market]])
-    return yf.screen(query, size=10, sortField="intradaymarketcap", sortAsc=False)
+        query = yf.EquityQuery("is-in", ["exchange", *MARKET_EXCHANGES[market]])
+        res = yf.screen(query, size=10, sortField="intradaymarketcap", sortAsc=False)
+        if isinstance(res, dict) and res.get("quotes"):
+            return res
+    except Exception:
+        log.warning("yf.screen falló para mercado %s, usando lista predeterminada", market, exc_info=True)
+
+    return {"quotes": FALLBACK_MARKET_COMPANIES.get(market, [])}
 
 
 def search_tickers(
