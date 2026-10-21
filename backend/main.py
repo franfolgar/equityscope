@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .ratelimit import SlidingWindowLimiter, allow_analysis_request
 from .service import DataError, get_company, get_conversion_rate, search_tickers
 
-app = FastAPI(title="EquityScope Finance API", version="1.1.0")
+app = FastAPI(title="EquityScope Finance API", version="1.2.0")
 allowed_origins = [
     origin.strip().rstrip("/")
     for origin in os.getenv(
