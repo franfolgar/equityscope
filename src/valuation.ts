@@ -134,6 +134,15 @@ export function calculateValuation(
   // La deuda neta evoluciona con el FCF generado (se asume que no se reparte
   // a los accionistas: dividendos y recompras no están modelados).
   let netDebt = ltm.netDebt
+  // El capital invertido crece con la reinversión neta: capex menos D&A más
+  // la variación del circulante.
+  let investedCapital =
+    ltm.equity +
+    ltm.shortTermDebt +
+    ltm.longTermDebt +
+    ltm.currentLease +
+    ltm.longTermLease -
+    ltm.shortTermInvestments
 
   for (let year = 1; year <= PROJECTION_YEARS; year += 1) {
     const growth = growthForYear(assumptions, year)
@@ -157,15 +166,7 @@ export function calculateValuation(
       workingCapitalChange +
       ltm.minorityInterest
     netDebt -= fcf
-    const investedCapital = Math.max(
-      1,
-      ltm.equity +
-        ltm.shortTermDebt +
-        ltm.longTermDebt +
-        ltm.currentLease +
-        ltm.longTermLease -
-        ltm.shortTermInvestments,
-    )
+    investedCapital += capex - depreciation + workingCapitalChange
     const hasShares = isPositive(shares)
     const prices = [
       validPrice(netIncome, () => (netIncome * assumptions.per - Math.min(netDebt, 0)) / shares),
@@ -183,7 +184,7 @@ export function calculateValuation(
       netIncome,
       fcf,
       shares,
-      roic: safeDivide(ebit * (1 - assumptions.taxRate), investedCapital),
+      roic: safeDivide(ebit * (1 - assumptions.taxRate), Math.max(1, investedCapital)),
       netDebt,
       prices,
       averagePrice: usable.length ? average(usable) : null,
