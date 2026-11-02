@@ -57,6 +57,22 @@ class TTLCacheTests(unittest.TestCase):
         self.assertEqual(results, ["v"] * 5)
         self.assertEqual(len(calls), 1)
 
+    def test_different_keys_do_not_wait_for_each_other(self):
+        cache = TTLCache(60)
+        gate = threading.Event()
+        slow = threading.Thread(target=lambda: cache.get_or_create("slow", lambda: gate.wait(5) or "v"))
+        slow.start()
+        try:
+            other = threading.Thread(target=lambda: cache.get_or_create("fast", lambda: "f"))
+            other.start()
+            other.join(1)
+            self.assertFalse(other.is_alive())
+            self.assertEqual(cache.get("fast"), "f")
+        finally:
+            gate.set()
+            slow.join()
+        self.assertEqual(cache._key_locks, {})
+
     def test_bounded_size(self):
         cache = TTLCache(60, max_items=3)
         for i in range(10):
@@ -80,6 +96,24 @@ class LimiterTests(unittest.TestCase):
         self.assertTrue(limiter.allow("a"))
         self.assertTrue(limiter.allow("b"))
         self.assertFalse(limiter.allow("a"))
+
+    def test_key_count_is_capped_dropping_least_recent(self):
+        limiter = SlidingWindowLimiter(1, 60, max_keys=3)
+        for key in ("a", "b", "c"):
+            self.assertTrue(limiter.allow(key))
+        self.assertFalse(limiter.allow("a"))  # "a" pasa a ser la más reciente
+        self.assertTrue(limiter.allow("d"))  # expulsa "b"
+        self.assertEqual(list(limiter._hits), ["c", "a", "d"])
+        self.assertFalse(limiter.allow("a"))
+
+    def test_expired_keys_are_swept(self):
+        clock = Clock()
+        limiter = SlidingWindowLimiter(1, 60, clock=clock)
+        for key in ("a", "b", "c"):
+            limiter.allow(key)
+        clock.now += 61
+        limiter.allow("d")
+        self.assertEqual(list(limiter._hits), ["d"])
 
     def test_ip_rejection_does_not_consume_global_quota(self):
         per_ip = SlidingWindowLimiter(1, 60)

@@ -19,9 +19,9 @@ class TTLCache:
         self._clock = clock
         self._items: dict[str, tuple[float, Any]] = {}
         self._guard = threading.Lock()
-        # Locks "por tramos": acotados en número, suficientes para no duplicar
-        # peticiones concurrentes del mismo ticker.
-        self._key_locks = [threading.Lock() for _ in range(16)]
+        # Un lock por clave mientras alguien la está creando (con contador de
+        # usuarios), para que solo esperen las peticiones del mismo ticker.
+        self._key_locks: dict[str, tuple[threading.Lock, int]] = {}
 
     def get(self, key: str) -> Optional[Any]:
         with self._guard:
@@ -49,10 +49,23 @@ class TTLCache:
         cached = self.get(key)
         if cached is not None:
             return cached
-        with self._key_locks[hash(key) % len(self._key_locks)]:
-            cached = self.get(key)
-            if cached is not None:
-                return cached
-            value = factory()
-            self.set(key, value)
-            return value
+        with self._guard:
+            lock, users = self._key_locks.get(key, (None, 0))
+            if lock is None:
+                lock = threading.Lock()
+            self._key_locks[key] = (lock, users + 1)
+        try:
+            with lock:
+                cached = self.get(key)
+                if cached is not None:
+                    return cached
+                value = factory()
+                self.set(key, value)
+                return value
+        finally:
+            with self._guard:
+                lock, users = self._key_locks[key]
+                if users == 1:
+                    del self._key_locks[key]
+                else:
+                    self._key_locks[key] = (lock, users - 1)
