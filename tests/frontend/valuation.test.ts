@@ -191,6 +191,28 @@ describe('calculateValuation', () => {
     assert.ok(result.projections.at(-1)!.netDebt < startNetDebt)
   })
 
+  it('el capital invertido proyectado crece con capex menos D&A más circulante', () => {
+    const a = assumptions({ capexToSales: 0.2, workingCapitalToSales: 0.1 })
+    const result = calculateValuation(company(), a)
+    const ltm = company().ltm
+    let investedCapital =
+      ltm.equity + ltm.shortTermDebt + ltm.longTermDebt + ltm.currentLease + ltm.longTermLease - ltm.shortTermInvestments
+    let revenue = ltm.revenue
+    let depreciation = ltm.depreciation
+    for (const projection of result.projections) {
+      const growth = growthForYear(a, projection.year)
+      const previousRevenue = revenue
+      revenue *= 1 + growth
+      depreciation *= 1 + growth
+      investedCapital += revenue * a.capexToSales - depreciation + a.workingCapitalToSales * (revenue - previousRevenue)
+      const expected = (projection.ebit * (1 - a.taxRate)) / investedCapital
+      assert.ok(Math.abs(projection.roic - expected) < 1e-9)
+    }
+    // Antes el capital quedaba fijo en el LTM y el ROIC del año 5 salía inflado.
+    const frozen = (result.projections.at(-1)!.ebit * (1 - a.taxRate)) / 700e6
+    assert.ok(result.projections.at(-1)!.roic < frozen)
+  })
+
   it('calcula el CAGR de cada método con su propio precio', () => {
     const result = calculateValuation(company(), assumptions())
     const last = result.projections.at(-1)!
